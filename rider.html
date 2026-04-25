@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rider Portal | Pizza Cheff</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary: #ff4d4d; --success: #27ae60; --dark: #1a1a1a; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    
+    body { background: #f4f7f6; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 20px; }
+    
+    .header { text-align: center; margin-bottom: 30px; }
+    .logo { font-family: 'Dancing Script', cursive; color: var(--primary); font-size: 2.5rem; }
+    
+    .card { 
+      background: white; 
+      width: 100%; 
+      max-width: 450px; 
+      padding: 30px; 
+      border-radius: 20px; 
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+      text-align: center;
+    }
+
+    h2 { margin-bottom: 20px; color: var(--dark); font-size: 1.2rem; }
+    
+    .input-group { margin-bottom: 20px; position: relative; }
+    input { 
+      width: 100%; 
+      padding: 15px; 
+      border: 2px solid #eee; 
+      border-radius: 12px; 
+      font-size: 1rem; 
+      text-align: center;
+      transition: 0.3s;
+    }
+    input:focus { border-color: var(--primary); outline: none; }
+
+    .btn { 
+      width: 100%; 
+      padding: 15px; 
+      border: none; 
+      border-radius: 12px; 
+      font-weight: bold; 
+      font-size: 1rem; 
+      cursor: pointer; 
+      transition: 0.3s; 
+      margin-top: 10px;
+    }
+    .btn-fetch { background: var(--dark); color: white; }
+    .btn-complete { background: var(--success); color: white; display: none; }
+    .btn:active { transform: scale(0.98); }
+
+    .order-info { 
+      margin-top: 25px; 
+      padding: 20px; 
+      background: #fff9f9; 
+      border-radius: 12px; 
+      text-align: left; 
+      display: none; 
+      border: 1px solid #ffebeb;
+    }
+    .info-row { margin-bottom: 12px; display: flex; flex-direction: column; }
+    .label { font-size: 0.8rem; color: #888; font-weight: 600; text-transform: uppercase; }
+    .value { font-size: 1.1rem; color: var(--dark); font-weight: 700; margin-top: 2px; }
+
+    .status-msg { margin-top: 15px; font-size: 0.9rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo">Pizza Cheff</div>
+    <p style="color: #666; font-weight: 600;">Delivery Rider Portal</p>
+  </div>
+
+  <div class="card">
+    <h2>Enter Order Number</h2>
+    <div class="input-group">
+      <input type="text" id="orderIdInput" placeholder="Paste Order ID here (e.g. ORD-123...)">
+    </div>
+    <button class="btn btn-fetch" onclick="fetchOrderDetails()">Check Order Details</button>
+
+    <div id="orderDisplay" class="order-info">
+      <div class="info-row">
+        <span class="label">Customer Name</span>
+        <span id="custName" class="value">---</span>
+      </div>
+      <div class="info-row">
+        <span class="label">Delivery Address</span>
+        <span id="custAddress" class="value" style="color: var(--primary);">---</span>
+      </div>
+      <div class="info-row">
+        <span class="label">Total Amount to Collect</span>
+        <span id="orderTotal" class="value">Rs 0</span>
+      </div>
+      <button class="btn btn-complete" id="completeBtn" onclick="markComplete()">
+        <i class="fas fa-check-circle"></i> Order Complete
+      </button>
+    </div>
+    
+    <p id="statusMsg" class="status-msg"></p>
+  </div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+  import { getDatabase, ref, get, update } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBq9W6hW_X5sc66r7kB6p8kMUq-17jgJ50",
+    authDomain: "pizza-cheff-92db6.firebaseapp.com",
+    projectId: "pizza-cheff-92db6",
+    databaseURL: "https://pizza-cheff-92db6-default-rtdb.firebaseio.com"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const database = getDatabase(app);
+
+  window.fetchOrderDetails = async () => {
+    const id = document.getElementById('orderIdInput').value.trim();
+    const display = document.getElementById('orderDisplay');
+    const msg = document.getElementById('statusMsg');
+    
+    if(!id) return alert("Please enter an Order ID");
+
+    msg.innerText = "Searching...";
+    msg.style.color = "#888";
+
+    try {
+      const snapshot = await get(ref(database, 'orders/' + id));
+      if (snapshot.exists()) {
+        const order = snapshot.val();
+        
+        // Populate Data
+        document.getElementById('custName').innerText = order.customerName || "Customer";
+        document.getElementById('custAddress').innerText = order.address || "No address provided";
+        document.getElementById('orderTotal').innerText = "Rs " + (order.total || 0);
+        
+        // Show UI
+        display.style.display = "block";
+        document.getElementById('completeBtn').style.display = "block";
+        msg.innerText = "Order Found!";
+        msg.style.color = "#27ae60";
+
+        // Check if already completed
+        if(order.status === "confirmed") {
+          document.getElementById('completeBtn').style.display = "none";
+          msg.innerText = "This order is already completed.";
+          msg.style.color = "#3498db";
+        }
+      } else {
+        display.style.display = "none";
+        msg.innerText = "Order ID not found. Please check again.";
+        msg.style.color = "#e74c3c";
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error connecting to database.");
+    }
+  };
+
+  window.markComplete = () => {
+    const id = document.getElementById('orderIdInput').value.trim();
+    if(confirm("Confirm that delivery is successful?")) {
+      update(ref(database, 'orders/' + id), {
+        status: "confirmed"
+      }).then(() => {
+        alert("Success! Order moved to history.");
+        location.reload(); // Reset page for next delivery
+      }).catch(() => {
+        alert("Failed to update status.");
+      });
+    }
+  };
+</script>
+</body>
+</html>
